@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Timetable Input Form</title>
+  <!-- SheetJS Library for reading Excel files -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <link rel="stylesheet" href="generator.css">
+</head>
+
+<body>
+  <div class="page">
+    <header>
+      <nav>
+        <h1>TimeTabler</h1>
+        <div class="container">
+          <label class="switch">
+            <input type="checkbox" id="modeToggle" />
+            <div class="switch-labels">
+              <span>Generator</span>
+              <span>Customizer</span>
+            </div>
+            <span class="slider"></span>
+          </label>
+        </div>
+      </nav>
+    </header>
+
+    <div class="generator">
+      <div class="inputform">
+        <h1 style="text-align: center;">Input Form</h1>
+        <form id="timetableForm">
+          <!-- Department Information -->
+          <div class="form-section">
+            <label>
+              Department Name:
+              <input type="text" name="department" required />
+            </label>
+          </div>
+          <!-- Excel File Upload for Classes -->
+          <div class="form-section">
+            <h2>Classes Data</h2>
+            <p>
+              Upload an Excel file for Classes. Each sheet represents a class; the sheet name is used as the
+              <strong>className</strong>. Each sheet must have the following columns:
+            </p>
+            <ul>
+              <li><strong>Subject Name</strong></li>
+              <li><strong>Type</strong> (e.g., "Theory" or "Practical")</li>
+              <li><strong>Hours per Week</strong></li>
+            </ul>
+            <input type="file" id="classesExcel" accept=".xlsx, .xls" required />
+          </div>
+          <!-- Excel File Upload for Faculty -->
+          <div class="form-section">
+            <h2>Faculty Data</h2>
+            <p>
+              Upload an Excel file for Faculty. Each sheet represents a faculty member; the sheet name is taken as the
+              <strong>facultyName</strong>. Each sheet should have:
+            </p>
+            <ul>
+              <li><strong>Subject Name</strong></li>
+              <li><strong>Type</strong> (e.g., "Theory" or "Practical")</li>
+            </ul>
+            <input type="file" id="facultyExcel" accept=".xlsx, .xls" required />
+          </div>
+          <!-- Time, Lecture Duration and New Limit Fields -->
+          <div class="form-section">
+            <label>
+              Start Time of the Day (HH:MM):
+              <input type="time" name="startTime" required />
+            </label>
+            <label>
+              End Time of the Day (HH:MM):
+              <input type="time" name="endTime" required />
+            </label>
+            <label>
+              Duration of One Lecture (in hours):
+              <input type="number" step="0.1" name="lectureDuration" required />
+            </label>
+            <!-- New Feature: Configurable maximum lectures per day for a faculty -->
+            <label>
+              Max Lectures Per Day for a Faculty:
+              <input type="number" name="maxFacultyLecturesPerDay" required value="4" />
+            </label>
+            <!-- New Feature: Configurable maximum lectures per day for a subject -->
+            <label>
+              Max Number of Lectures for a Subject per Day:
+              <input type="number" name="maxSubjectLecturesPerDay" required value="2" />
+            </label>
+          </div>
+          <!-- Break Times for Weekdays -->
+          <div class="form-section">
+            <h2>Break Times</h2>
+            <div id="breaksContainer">
+              <div class="breakInput">
+                <label>
+                  Break Start:
+                  <input type="time" name="breakStart">
+                </label>
+                <label>
+                  Break End:
+                  <input type="time" name="breakEnd">
+                </label>
+              </div>
+            </div>
+            <button type="button" id="addBreak">Add Another Break</button>
+          </div>
+          <!-- Saturday Scheduling Options -->
+          <div class="form-section">
+            <label>
+              <input type="checkbox" id="saturdayEnabled" name="saturdayEnabled">
+              Enable Saturday Scheduling (Custom Timings)
+            </label>
+            <div id="saturdayOptions" style="display: none;">
+              <label>
+                Saturday Start Time (HH:MM):
+                <input type="time" name="saturdayStartTime">
+              </label>
+              <label>
+                Saturday End Time (HH:MM):
+                <input type="time" name="saturdayEndTime">
+              </label>
+              <!-- Saturday Break Times -->
+              <div class="form-section">
+                <h3>Saturday Break Times</h3>
+                <div id="saturdayBreaksContainer">
+                  <div class="saturdayBreakInput">
+                    <label>
+                      Saturday Break Start:
+                      <input type="time" name="saturdayBreakStart">
+                    </label>
+                    <label>
+                      Saturday Break End:
+                      <input type="time" name="saturdayBreakEnd">
+                    </label>
+                  </div>
+                </div>
+                <button type="button" id="addSaturdayBreak">Add Another Saturday Break</button>
+              </div>
+            </div>
+          </div>
+          <!-- Rooms and Labs Information -->
+          <div class="form-section">
+            <label>
+              Number of Classrooms Available (for theory lectures):
+              <input type="number" name="numberOfRooms" required>
+            </label>
+            <label>
+              Number of Labs Available (for practical lectures):
+              <input type="number" name="numberOfLabs" required>
+            </label>
+          </div>
+          <!-- Final Submit Button -->
+          <input type="submit" id="generateButton" value="Generate">
+        </form>
+      </div>
+
+
+      <div class="output">
+        <!-- Output area for the generated timetable -->
+        <div id="timetableOutput"></div>
+
+        <!-- New buttons for Faculty and Resource Timetables -->
+        <div style="margin-top: 20px;">
+          <button id="displayFacultyTimetable">Display Faculty Timetable</button>
+          <button id="displayResourceTimetable">Display Resource Timetable</button>
+        </div>
+
+        <!-- Containers for new outputs -->
+        <div id="facultyTimetableOutput" style="margin-top:20px;"></div>
+        <div id="resourceTimetableOutput" style="margin-top:20px;"></div>
+
+        <!-- New Download Options -->
+        <div id="download-options" style="margin-top:20px;">
+          <button onclick="downloadAsPDF()">Download PDF</button>
+          <button onclick="downloadAsWord()">Download Word</button>
+          <button onclick="downloadAsExcel()">Download Excel</button>
+          <button onclick="downloadAsJSON()">Download JSON</button>
+
+        </div>
+      </div>
+    </div>
+
+    <div class="customizer">
+      <!-- Upload Interface (already present) -->
+      <div class="section">
+        <div class="upload-container" id="dropZone">
+          <p>Drag & Drop JSON file here</p>
+          <p>or</p>
+          <button class="btn" id="browseBtn">Browse</button>
+          <input type="file" id="fileInput" accept="application/json">
+        </div>
+      </div>
+
+      <div class="editor">
+        <!-- Edit Button -->
+        <button id="edit-btn">Edit Timetable</button>
+
+        <!-- Option Toggles -->
+        <div id="editOptions" style="display: none;">
+          <label><input type="checkbox" id="editText"> Edit Text</label>
+          <label><input type="checkbox" id="editDragDrop"> Drag & Drop</label>
+          <label><input type="checkbox" id="enableDelete"> Delete</label>
+        </div>
+
+        <!-- Action Buttons -->
+        <div id="actionButtons">
+          <button id="save-btn">Save</button>
+          <button id="cancel-btn">Cancel</button>
+        </div>
+
+        <button onclick="downloadAsJSON()">Download JSON</button>
+        <button onclick="downloadAsPDF()">Download PDF</button>
+        <button onclick="downloadAsExcel()">Download Excel</button>
+
+        <div id="customizerOutput" style="margin-top: 30px;"></div>
+
+        <!-- Preview Comparison if needed -->
+        <div id="previewComparison" style="margin-top: 30px;"></div>
+      </div>
+
+
+    </div>
+
+  </div>
+
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const toggle = document.getElementById('modeToggle');
+      const generatorDiv = document.querySelector('.generator');
+      const customizerDiv = document.querySelector('.customizer');
+
+      function updateView() {
+        if (toggle.checked) {
+          generatorDiv.style.display = 'none';
+          customizerDiv.style.display = 'block';
+        } else {
+          generatorDiv.style.display = 'block';
+          customizerDiv.style.display = 'none';
+        }
+      }
+
+      toggle.addEventListener('change', updateView);
+      updateView(); // set initial state on load
+    });
+  </script>
+
+  <!-- <script>
+    (function () {
+      const dropZone = document.getElementById('dropZone');
+      const fileInput = document.getElementById('fileInput');
+      const browseBtn = document.getElementById('browseBtn');
+
+      // Prevent default drag behaviors
+      ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, preventDefaults, false);
+        document.body.addEventListener(eventName, preventDefaults, false);
+      });
+
+      function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+
+      // Highlight drop zone when file is over it
+      ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false);
+      });
+      ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false);
+      });
+
+      // Handle dropped files
+      dropZone.addEventListener('drop', handleDrop, false);
+      browseBtn.addEventListener('click', () => fileInput.click());
+      fileInput.addEventListener('change', handleFiles, false);
+
+      function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        handleFiles({ target: { files } });
+      }
+
+      function handleFiles(e) {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+
+        const file = files[0];
+        if (file.type !== 'application/json') {
+          alert('Please upload a valid JSON file.');
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function (event) {
+          try {
+            const jsonData = JSON.parse(event.target.result);
+            console.log('Parsed JSON:', jsonData);
+            alert('JSON loaded successfully! Check console for data.');
+            // TODO: Process jsonData as needed
+          } catch (err) {
+            alert('Error parsing JSON: ' + err.message);
+          }
+        };
+        reader.readAsText(file);
+      }
+    })();
+  </script> -->
+
+  <script>
+    async function confirmChanges() {
+      const confirmed = confirm("Are you sure you want to save your changes and overwrite the timetable?");
+      if (!confirmed) return;
+
+      try {
+        const response = await fetch('/updateTimetable', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(editableData)
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to save timetable");
+        }
+
+        alert("Timetable successfully updated.");
+        generatedData = JSON.parse(JSON.stringify(editableData)); // sync updated data
+      } catch (error) {
+        console.error(error);
+        alert("An error occurred while saving the timetable.");
+      }
+    }
+
+  </script>
+
+  <script>
+    // Global editable data store
+    // let generatedData = null;
+    let editableData = null;
+    let originalSnapshot = null;
+    let draggedCellId = null; // changed from draggedItem
+
+    (function () {
+      const dropZone = document.getElementById('dropZone');
+      const fileInput = document.getElementById('fileInput');
+      const browseBtn = document.getElementById('browseBtn');
+
+      ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, preventDefaults, false);
+        document.body.addEventListener(eventName, preventDefaults, false);
+      });
+
+      function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+
+      ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false);
+      });
+      ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false);
+      });
+
+      dropZone.addEventListener('drop', handleDrop, false);
+      browseBtn.addEventListener('click', () => fileInput.click());
+      fileInput.addEventListener('change', handleFiles, false);
+
+      function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        handleFiles({ target: { files } });
+      }
+
+      function handleFiles(e) {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+
+        const file = files[0];
+        if (file.type !== 'application/json') {
+          alert('Please upload a valid JSON file.');
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function (event) {
+          try {
+            const jsonData = JSON.parse(event.target.result);
+            generatedData = jsonData;
+            editableData = JSON.parse(JSON.stringify(jsonData));
+            renderEditableTimetable(editableData);
+            alert('JSON loaded! You can now edit the timetable.');
+          } catch (err) {
+            alert('Error parsing JSON: ' + err.message);
+          }
+        };
+        reader.readAsText(file);
+      }
+    })();
+
+    function renderEditableTimetable(data) {
+      document.querySelector('.editor').style.display = 'block';
+
+      const container = document.getElementById('customizerOutput');
+      container.innerHTML = '';
+
+      for (const cls in data.timetable) {
+        const days = Object.keys(data.timetable[cls]);
+        const slotCount = data.timetable[cls][days[0]].length;
+
+        let html = `<h2 style="text-align:center;">${cls}</h2>
+      <table border="1" style="width:100%; margin-bottom:20px;">
+        <thead><tr><th>Time</th>${days.map(day => `<th>${day}</th>`).join('')}</tr></thead>
+        <tbody>`;
+
+        for (let i = 0; i < slotCount; i++) {
+          html += `<tr><td>${data.timetable[cls][days[0]][i].time.start} - ${data.timetable[cls][days[0]][i].time.end}</td>`;
+          for (const day of days) {
+            const lecture = data.timetable[cls][day][i].lecture || { subject: '', faculty: '', venue: '' };
+            const cellId = `cell–${cls}–${day}–${i}`;
+            html += `<td id="${cellId}" class="editable-cell" draggable="false">
+                  <div class="lecture-content" contenteditable="false">${lecture.subject}<br>${lecture.faculty}<br>${lecture.venue}</div>
+                  <span class="close-btn" style="display:none;">✕</span>
+              </td>`;
+          }
+          html += '</tr>';
+        }
+        html += '</tbody></table>';
+        container.insertAdjacentHTML('beforeend', html);
+      }
+
+      enableEditOptions();
+    }
+
+    function parseCellId(id) {
+      const [_, cls, day, index] = id.split('–');
+      return { className: cls, day, index: parseInt(index, 10) };
+    }
+
+    function enableEditOptions() {
+      const enableText = document.getElementById('editText').checked;
+      const enableDrag = document.getElementById('editDragDrop').checked;
+      const enableDelete = document.getElementById('enableDelete').checked;
+
+      const cells = document.querySelectorAll('.editable-cell');
+
+      cells.forEach(cell => {
+        const content = cell.querySelector('.lecture-content');
+        content.contentEditable = enableText;
+        if (enableText) {
+          content.addEventListener('blur', onCellTextEdit);
+        } else {
+          content.removeEventListener('blur', onCellTextEdit);
+        }
+
+        cell.setAttribute('draggable', enableDrag);
+        if (enableDrag) {
+          cell.ondragstart = dragStart;
+          cell.ondrop = drop;
+          cell.ondragover = e => e.preventDefault();
+        } else {
+          cell.ondragstart = null;
+          cell.ondrop = null;
+          cell.ondragover = null;
+        }
+
+        const closeBtn = cell.querySelector('.close-btn');
+        if (enableDelete) {
+          closeBtn.style.display = 'inline';
+          closeBtn.onclick = () => {
+            const { className, day, index } = parseCellId(cell.id);
+            editableData.timetable[className][day][index].lecture = {
+              subject: '', faculty: '', venue: '',
+              time: editableData.timetable[className][day][index].time
+            };
+            renderEditableTimetable(editableData);
+          };
+        } else {
+          closeBtn.style.display = 'none';
+        }
+      });
+    }
+
+    document.getElementById('editText').addEventListener('change', enableEditOptions);
+    document.getElementById('editDragDrop').addEventListener('change', enableEditOptions);
+    document.getElementById('enableDelete').addEventListener('change', enableEditOptions);
+
+    function onCellTextEdit(e) {
+      const cell = e.currentTarget.closest('.editable-cell');
+      const { className, day, index } = parseCellId(cell.id);
+      const lines = e.currentTarget.innerText.trim().split('\n').map(line => line.trim());
+
+      editableData.timetable[className][day][index].lecture = {
+        subject: lines[0] || '',
+        faculty: lines[1] || '',
+        venue: lines[2] || '',
+        time: editableData.timetable[className][day][index].time
+      };
+    }
+
+    function dragStart(event) {
+      draggedCellId = event.currentTarget.id;
+    }
+
+    function drop(event) {
+      event.preventDefault();
+      const targetCellId = event.currentTarget.id;
+
+      if (!draggedCellId || draggedCellId === targetCellId) return;
+
+      const src = parseCellId(draggedCellId);
+      const tgt = parseCellId(targetCellId);
+
+      const srcSlot = editableData.timetable[src.className][src.day][src.index];
+      const tgtSlot = editableData.timetable[tgt.className][tgt.day][tgt.index];
+
+      // Deep clone to avoid memory reference bugs
+      const srcCopy = structuredClone(srcSlot.lecture);
+      const tgtCopy = structuredClone(tgtSlot.lecture);
+
+      // Swap in the data model
+      editableData.timetable[src.className][src.day][src.index].lecture = tgtCopy;
+      editableData.timetable[tgt.className][tgt.day][tgt.index].lecture = srcCopy;
+
+      // Swap in the DOM (just these 2 cells)
+      const srcEl = document.getElementById(draggedCellId).querySelector('.lecture-content');
+      const tgtEl = document.getElementById(targetCellId).querySelector('.lecture-content');
+
+      srcEl.innerHTML = `${tgtCopy.subject}<br>${tgtCopy.faculty}<br>${tgtCopy.venue}`;
+      tgtEl.innerHTML = `${srcCopy.subject}<br>${srcCopy.faculty}<br>${srcCopy.venue}`;
+
+      // Clear drag state
+      draggedCellId = null;
+    }
+
+
+    function saveOriginalSnapshot() {
+      originalSnapshot = JSON.parse(JSON.stringify(editableData));
+    }
+
+    function restoreOriginalSnapshot() {
+      if (originalSnapshot) {
+        editableData = JSON.parse(JSON.stringify(originalSnapshot));
+        renderEditableTimetable(editableData);
+      }
+    }
+
+    document.getElementById('edit-btn').addEventListener('click', () => {
+      const editOptions = document.getElementById('editOptions');
+      const actionButtons = document.getElementById('actionButtons');
+      const visible = editOptions.style.display === 'block';
+
+      editOptions.style.display = visible ? 'none' : 'block';
+      actionButtons.style.display = visible ? 'none' : 'block';
+
+      if (!visible) saveOriginalSnapshot();
+      enableEditOptions();
+    });
+
+    document.getElementById('save-btn').addEventListener('click', async () => {
+      document.getElementById('editOptions').style.display = 'none';
+      document.getElementById('actionButtons').style.display = 'none';
+
+      try {
+        const response = await fetch('/updateTimetable', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(editableData)
+        });
+
+        if (!response.ok) throw new Error('Server error while saving.');
+
+        const updated = await response.json();
+        generatedData = updated;
+        editableData = JSON.parse(JSON.stringify(updated));
+        alert('Timetable saved and regenerated!');
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    });
+
+    document.getElementById('cancel-btn').addEventListener('click', () => {
+      restoreOriginalSnapshot();
+      document.getElementById('editOptions').style.display = 'none';
+      document.getElementById('actionButtons').style.display = 'none';
+    });
+  </script>
+
+  <script src="script.js"></script>
+  <!-- <script src="script3.js"></script> -->
+
+</body>
+
+</html>
